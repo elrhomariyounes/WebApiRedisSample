@@ -1,0 +1,31 @@
+﻿version: "3"
+
+networks:
+  app.net:
+    driver: bridge
+
+services:
+  api.todos:
+    build: .
+    networks:
+      - app.net
+    ports:
+      - "5000:80"
+      - "5001:443"
+    links:
+      - db:todosdb
+
+  db:
+    image: postgres:12
+    ports:
+      - "5432:5432"
+    networks:
+      - app.net
+    volumes:
+      - ./Data/db:/docker-entrypoint-initdb.d/
+    environment:
+      POSTGRES_DB: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_PORT: 5432
+    
