@@ -8,5 +8,7 @@ namespace WebApiRedisSample.Services.Interfaces
     {
         Task<IEnumerable<Todo>> GetTodos();
         Task<int> AddTodo(TodoViewModel model);
+
+        Task<string> CacheTodos();
     }
 }

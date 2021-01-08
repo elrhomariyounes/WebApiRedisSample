@@ -1,9 +1,11 @@
 ﻿using Dapper;
+using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Npgsql;
 using System;
 using System.Collections.Generic;
+using System.Text.Json;
 using System.Threading.Tasks;
 using WebApiRedisSample.Data.Models;
 using WebApiRedisSample.Services.Interfaces;
@@ -15,11 +17,15 @@ namespace WebApiRedisSample.Services.Implementations
         private readonly IConfiguration _configuration;
         private readonly string _dbConnectionString;
         private readonly ILogger<TodoService> _logger;
-        public TodoService(IConfiguration configuration, ILogger<TodoService> logger)
+        private readonly IDistributedCache _cache;
+        private TimeSpan? AbsoluteExpireTime => TimeSpan.FromSeconds(60);
+        private TimeSpan? UnusedExpireTime => null;
+        public TodoService(IConfiguration configuration, ILogger<TodoService> logger, IDistributedCache cache)
         {
             _configuration = configuration;
             _logger = logger;
             _dbConnectionString = _configuration.GetConnectionString("Postgres");
+            _cache = cache;
         }
 
         public async Task<int> AddTodo(TodoViewModel model)
@@ -42,6 +48,36 @@ namespace WebApiRedisSample.Services.Implementations
         }
 
         public async Task<IEnumerable<Todo>> GetTodos()
+        {
+            var cacheKey = "WebApiRedisSample_" + DateTime.Now.ToString("yyyyMMdd_hhmm");
+            var cacheData = await _cache.GetStringAsync(cacheKey);
+
+            if(cacheData == null)
+            {
+                var todos = await FetchTodos();
+                return todos;
+            }
+
+            return JsonSerializer.Deserialize<List<Todo>>(cacheData);
+        }
+
+        public async Task<string> CacheTodos()
+        {
+            var cacheOptions = new DistributedCacheEntryOptions()
+            {
+                AbsoluteExpirationRelativeToNow = AbsoluteExpireTime,
+                SlidingExpiration = UnusedExpireTime
+            };
+
+            var todos = await FetchTodos();
+            var key = "WebApiRedisSample_"+ DateTime.Now.ToString("yyyyMMdd_hhmm");
+            var jsonData = JsonSerializer.Serialize(todos);
+            await _cache.SetStringAsync(key, jsonData, cacheOptions);
+
+            return key;
+        }
+
+        private async Task<IEnumerable<Todo>> FetchTodos()
         {
             try
             {
