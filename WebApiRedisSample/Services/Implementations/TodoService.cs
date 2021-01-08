@@ -54,14 +54,20 @@ namespace WebApiRedisSample.Services.Implementations
 
             if(cacheData == null)
             {
+                // Fetch from Postgres
                 var todos = await FetchTodos();
+
+                //Cache todos
+                await CacheTodos(cacheKey, todos);
+
                 return todos;
             }
 
+            // Return cached todos
             return JsonSerializer.Deserialize<List<Todo>>(cacheData);
         }
 
-        public async Task<string> CacheTodos()
+        private async Task CacheTodos(string key, IEnumerable<Todo> todos)
         {
             var cacheOptions = new DistributedCacheEntryOptions()
             {
@@ -69,12 +75,8 @@ namespace WebApiRedisSample.Services.Implementations
                 SlidingExpiration = UnusedExpireTime
             };
 
-            var todos = await FetchTodos();
-            var key = "WebApiRedisSample_"+ DateTime.Now.ToString("yyyyMMdd_hhmm");
             var jsonData = JsonSerializer.Serialize(todos);
             await _cache.SetStringAsync(key, jsonData, cacheOptions);
-
-            return key;
         }
 
         private async Task<IEnumerable<Todo>> FetchTodos()

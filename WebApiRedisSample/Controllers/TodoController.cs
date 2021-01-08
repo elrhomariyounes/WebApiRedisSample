@@ -41,12 +41,5 @@ namespace WebApiRedisSample.Controllers
 
             return BadRequest(result);
         }
-
-        [HttpPost("cache")]
-        public async Task<IActionResult> CacheTodos()
-        {
-            var result = await _todoService.CacheTodos();
-            return Ok(result);
-        }
     }
 }
